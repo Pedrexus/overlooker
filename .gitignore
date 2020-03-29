@@ -1,2 +1,5 @@
 /venv/
 /__*/
+/.vscode/
+/.git/
+/.ipynb_checkpoints/
