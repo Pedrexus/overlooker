@@ -3,6 +3,8 @@ from pandas import DataFrame
 from ta.momentum import RSIIndicator
 from ta.trend import EMAIndicator
 
+from modules.profit import Profit
+
 
 class Strategy(metaclass=abc.ABCMeta):
 
@@ -11,6 +13,9 @@ class Strategy(metaclass=abc.ABCMeta):
 
 	def __call__(self, *args, **kwargs):
 		return self._execute(*args, **kwargs)
+
+	def __repr__(self):
+		return repr(self.chart)
 
 	def plot(self, *args, **kwargs):
 		df = self.chart.copy()
@@ -53,12 +58,14 @@ class AdaptivePQ(Strategy):
 		df["rsi"], df["rsi_ema"] = indicator_rsi, indicator_rsi_ema.fillna(0)
 
 		trend = df.apply(self._strategy, axis=1, lower_limit=lower_limit, upper_limit=upper_limit)
-		df["trend"] = trend.fillna(method='ffill').fillna(0)
+		df["trend"] = trend
 
-		trend_change = df["trend"] - df["trend"].shift(1).fillna(0)
+		ffill_trend = trend.fillna(method='ffill').fillna(0)
+		trend_change = ffill_trend - ffill_trend.shift(1).fillna(0)
 		df["trend change"] = trend_change != 0
 
-		return df
+		self.chart = df
+		return Profit(df)
 
 	@staticmethod
 	def _strategy(row, lower_limit=40, upper_limit=60):
