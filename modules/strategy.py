@@ -50,10 +50,10 @@ class AdaptivePQ(Strategy):
 	def _execute(self, rsi_n=14, ema_n=12, lower_limit=40, upper_limit=60):
 		df = self.chart.copy()
 
-		indicator_rsi = RSIIndicator(close=df.close, n=rsi_n, fillna=False).rsi()
-		indicator_rsi_ema = EMAIndicator(close=indicator_rsi, n=ema_n).ema_indicator()
+		indicator_rsi = RSIIndicator(close=df.close, n=int(rsi_n), fillna=False).rsi()
+		indicator_rsi_ema = EMAIndicator(close=indicator_rsi, n=int(ema_n)).ema_indicator()
 
-		indicator_rsi[:ema_n - 1] = 0
+		indicator_rsi[:int(ema_n) - 1] = 0
 
 		df["rsi"], df["rsi_ema"] = indicator_rsi, indicator_rsi_ema.fillna(0)
 
@@ -61,8 +61,10 @@ class AdaptivePQ(Strategy):
 		df["trend"] = trend
 
 		ffill_trend = trend.fillna(method='ffill').fillna(0)
+		df["state"] = ffill_trend
+
 		trend_change = ffill_trend - ffill_trend.shift(1).fillna(0)
-		df["trend change"] = trend_change != 0
+		df["change"] = trend_change != 0
 
 		self.chart = df
 		return Profit(df)
