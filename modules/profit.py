@@ -4,6 +4,7 @@ from pandas import DataFrame
 
 
 class Profit:
+	# TODO: numero de operacoes, positivas, negativas, risco, exposicao, etc
 
 	def __init__(self, chart: DataFrame):
 		self.chart = chart.copy()
