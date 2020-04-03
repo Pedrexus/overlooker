@@ -6,19 +6,19 @@ from hyperopt import hp, tpe, fmin
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from modules.strategy import Strategy
+from modules.Strategy import Strategy
 
 
 class Optimization:
 
-	def __init__(self, strategy: Strategy, strategy_kwargs, profit_kwargs):
+	def __init__(self, strategy: Strategy, *args, **kwargs):
 		self.strategy = strategy
 
-		self.strategy_kwargs = strategy_kwargs
-		self.profit_kwargs = profit_kwargs
+		self.args = args
+		self.kwargs = kwargs
 
 	def func(self, args):
-		return - self.strategy(*args, **self.strategy_kwargs).profit(**self.profit_kwargs).total
+		return - self.strategy.evaluate(*args, *self.args, **self.kwargs).total_profit
 
 	def minimization(self, x, **kwargs):
 		opt_result = minimize(self.func, x0=x, **kwargs)

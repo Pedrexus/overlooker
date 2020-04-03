@@ -1,8 +1,11 @@
+from functools import total_ordering
+
 from modules.constants import Constant
 
 
+# @total_ordering
 class Order(Constant):
-	pass
+      pass
 
 
 HOLD_POSITION = Order('HOLD_POSITION')

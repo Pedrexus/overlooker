@@ -1,176 +1,163 @@
-from collections import UserDict
-from typing import List, Tuple, Any
+from easydict import EasyDict as edict
+from copy import copy
 
-from pandas import DataFrame, Series
+from modules.constants.states import NO_POSITION, SHORT_POSITION, LONG_POSITION
 
-from modules.constants.orders import OPEN_LONG_POSITION, HOLD_POSITION, \
-    OPEN_SHORT_POSITION, CLOSE_LONG_POSITION, \
-    CLOSE_SHORT_POSITION, Order
-from modules.constants.states import State, SHORT_POSITION, LONG_POSITION, NO_POSITION
-from modules.strategy import Context
-from modules.utils.decorators import argsdispatch
+LENDING_PERIOD = 86400
 
 
-class Ledger:
+class Accountant:
+    class Describe:
 
-    def __init__(self, cash: int = 1):
-        self.orders = DataFrame(
-            dict(position=[cash], commission=[0], lending_debt=[0],
-                 profit=[1], is_order=[False], close=[1], state=[NO_POSITION])
-        )
+        def __init__(self):
+            self.data = edict(
+                position=1, commission=0, lending_debt=0, profit=1, acc_profit=1, close=1,
+                state=NO_POSITION
+            )
+            self.last_order = copy(self.data)
 
-    def save(self, position, commission, lending_debt, profit, close, is_order, state):
-        data = dict(position=position, commission=commission, lending_debt=lending_debt,
-                    profit=profit, close=close, is_order=is_order, state=state)
-        self.orders = self.orders.append(data, ignore_index=True)
+        def describe_profit(self, row, stop_loss=0.85, acc_stop_loss=.725, rate=9e-4, leverage=1,
+                            lending_rate=1e-4):
 
-    @property
-    def last_order(self) -> Series:
-        df = self.orders[self.orders.is_order]
-        if len(df):
-            return df.iloc[-1]
-        return self.orders.iloc[0]
+            time = (row.date - row.date_previous).total_seconds() / LENDING_PERIOD
 
-    @property
-    def result(self):
-        return self.orders.drop("close", axis=1)
+            if self.data.acc_profit > acc_stop_loss:
+                if row.change:
+                    self.last_order = copy(self.data)
+                    if row.trend > 0:  # buy order
+                        state = LONG_POSITION
+                        if self.data.state < 0:  # close short and open long
+                            lending_debt = self.data.lending_debt * (1 + lending_rate) ** time
+                            commission = self.data.position * rate
+                            position = self.data.position / row.close - commission - lending_debt
+                            profit = (position * row.close) / (
+                                    self.data.position - lending_debt * row.close)
 
+                            lending_debt = 0
+                        else:  # open long
+                            lending_debt = 0
+                            commission = self.data.position * rate
+                            position = self.data.position / row.close - commission - lending_debt
+                            profit = (position * row.close) / (
+                                    self.data.position - lending_debt * row.close)
+                        acc_profit = position * row.close / 1
+                    elif row.trend < 0:  # sell order
+                        state = SHORT_POSITION
+                        if self.data.state > 0:  # close long and open short
+                            # self.last_order.state = LONG_POSITION
 
-OrderType = Tuple[float, float, float, float, float, bool]
+                            # close long
+                            commission = self.data.position * row.close * rate
+                            lending_debt = 0
+                            position = self.data.position * row.close - commission - lending_debt
 
+                            # open short
+                            lending_debt = position * leverage / row.close  # unit = other
+                            commission += position * leverage * rate  # unit = mine
+                            position = position * (1 + leverage) - commission  # unit = mine
+                            profit = (position - lending_debt * row.close) / (
+                                    self.data.position * row.close)
+                        else:  # open short
+                            lending_debt = self.data.position * leverage / row.close  # unit = other
+                            commission = self.data.position * leverage * rate  # unit = mine
+                            position = self.data.position * (
+                                    1 + leverage) - commission  # unit = mine
+                            profit = (position - lending_debt * row.close) / self.data.position
+                        acc_profit = (position - lending_debt * row.close) / 1
+                    else:
+                        print(row)
+                        raise Exception
+                else:
+                    if self.data.state > 0:  # hold long
+                        state = LONG_POSITION
 
-class Measure:
+                        commission = 0
+                        lending_debt = 0
+                        position = self.data.position
+                        profit = position * row.close / (
+                                self.last_order.position - self.last_order.lending_debt * self.last_order.close)
+                        acc_profit = position * row.close / 1
+                    elif self.data.state < 0:  # hold short
+                        state = SHORT_POSITION
 
-    def __init__(self, stop_loss: float = 0.85, buy_rate=9e-4, sell_rate=9e-4, leverage=1,
-                 lending_rate=2e-2, candlestick_period=300):
-        self.stop_loss = stop_loss
-        self.buy_rate = buy_rate
-        self.sell_rate = sell_rate
-        self.leverage = leverage
-        self.lending_rate = lending_rate
-        self.time = candlestick_period
+                        last_order_position = self.last_order.position * self.last_order.close if self.last_order.state > 0 else self.last_order.position
 
-        self.ledger = Ledger()
+                        commission = 0
+                        lending_debt = self.data.lending_debt * (1 + lending_rate) ** time
+                        position = self.data.position
+                        profit = (position - lending_debt * row.close) / last_order_position
+                        acc_profit = (position - lending_debt * row.close) / 1
+                    else:
+                        state = NO_POSITION
 
-    def record(self, orders: Tuple[Order], context: Context, close: float) -> Tuple[Order]:
-        state = context.state
-        _ = self.ledger.last_order
+                        lending_debt = 0
+                        commission = 0
+                        position = self.data.position
+                        profit = self.data.profit
+                        acc_profit = position / 1
+            else:
+                state = self.data.state
+                lending_debt = self.data.lending_debt
+                commission = self.data.commission
+                position = self.data.position
+                profit = self.data.profit
+                acc_profit = self.data.acc_profit
 
-        position, commission, lending_debt, profit, close, is_order = self.compute_order(
-            orders, state, _.position, _.commission, _.lending_debt, _.profit, close)
+            if profit < stop_loss or acc_profit < acc_stop_loss:
+                # uses the self.data previously computed
+                # we assume next_row.open == row.close -> this is the selling/buying price
+                if state > 0:  # close long
+                    commission = position * row.close * rate
+                    position = position * row.close - commission - lending_debt
+                    # profit = position / (self.last_order.position - self.last_order.lending_debt * self.last_order.close)
+                elif state < 0:  # close short
+                    last_order_position = self.last_order.position * self.last_order.close if self.last_order.state > 0 else self.last_order.position
 
-        # print(_.position, _.commission, _.lending_debt, _.profit)
+                    commission = lending_debt * row.close * rate
+                    position = position - commission - lending_debt * row.close
+                    # profit = position / last_order_position
 
-        if profit < self.stop_loss:
-            orders = (CLOSE_SHORT_POSITION,) if state is SHORT_POSITION else (CLOSE_LONG_POSITION,)
+                    lending_debt = 0
+                if profit < stop_loss:
+                    profit = stop_loss
 
-        context.update(orders)
+                state = NO_POSITION
+                acc_profit = position / 1
 
-        self.ledger.save(
-            position, commission, lending_debt, profit, close, is_order, context.state)
+            self.data = edict(
+                position=position, commission=commission, lending_debt=lending_debt, profit=profit,
+                acc_profit=acc_profit, close=row.close, state=state
+            )
 
-        return orders
+            return self.data
 
-    @argsdispatch
-    def compute_order(self, orders: Tuple[Order], state: State = NO_POSITION, position: float = 1,
-                      commission: float = 0, lending_debt: float = 0, profit: float = 1,
-                      close: float = 1) -> OrderType:
-        raise NotImplementedError(
-            f"orders {orders} is not possible. "
-            f"Check strategy method"
-        )
+    class Evaluate:
 
-    @compute_order.register(orders=(HOLD_POSITION,))
-    def hold_position(self, state, position, commission, lending_debt, profit, close):
-        is_order = False
+        def __init__(self, initial_position=1):
+            self.initial_position = initial_position
+            self.position = initial_position
 
-        commission = 0
-        if state is LONG_POSITION:
-            lending_debt = 0
-            profit = position * close / (
-                    position - self.ledger.last_order.lending_debt * self.ledger.last_order.close)
-        elif state is SHORT_POSITION:
-            lending_debt *= (1 + self.lending_rate) ** self.time
-            profit = (position - lending_debt * close) / self.ledger.last_order.position
-        else:
-            lending_debt = 0
-            profit = 1
+        def evaluate_profit(self, row, stop_loss=0.85, rate=9e-4, leverage=1, lending_rate=1e-4):
+            if row.change_start:
+                ratio = row.close_end / row.close_start
+                if row.state_start < 0:  # short position
+                    time = (row.date_end - row.date_start).total_seconds() / LENDING_PERIOD  # per day
+                    interest = (1 + lending_rate) ** time
+                    profit = 1 + leverage * (1 - rate - (1 + rate) * interest * ratio)
+                    # profit = 1 + leverage * (1 - rate) - leverage * interest * ratio * (1 + rate)
+                elif row.state_start > 0:  # long position
+                    profit = ratio * (1 - rate) ** 2
+                else:
+                    raise Exception
+            else:
+                profit = 1
 
-        return position, commission, lending_debt, profit, close, is_order
+            if profit < stop_loss:
+                profit = stop_loss * (1 - rate)
 
-    @compute_order.register(orders=(OPEN_LONG_POSITION,))
-    def open_long_position(self, state, position, commission, lending_debt, profit, close):
-        is_order = True
+            self.position *= profit
 
-        lending_debt = 0
-        commission += position * self.buy_rate  # unit = mine
-        _position = position / close - commission - lending_debt  # unit = other
-
-        profit *= (_position * close) / (position - lending_debt * close)
-
-        return _position, commission, lending_debt, profit, close, is_order
-
-    @compute_order.register(orders=(OPEN_SHORT_POSITION,))
-    def open_short_position(self, state, position, commission, lending_debt, profit,
-                            close):
-        is_order = True
-
-        leverage = position * self.leverage  # leveraged amount
-
-        lending_debt = leverage / close  # unit = other
-        commission += leverage * self.sell_rate  # unit = mine
-        _position = position + leverage - commission  # unit = mine
-
-        profit *= (_position - lending_debt * close) / position
-
-        return _position, commission, lending_debt, profit, close, is_order
-
-    @compute_order.register(orders=(CLOSE_LONG_POSITION,))
-    def close_long_position(self, state, position, commission, lending_debt, profit,
-                            close):
-        is_order = True
-
-        revenue = position * close  # gross revenue for closing position
-
-        lending_debt = 0
-        commission += revenue * self.sell_rate  # unit = mine
-        _position = revenue - commission - lending_debt  # unit = mine
-
-        profit *= (_position - lending_debt * close) / position
-
-        return _position, commission, lending_debt, profit, close, is_order
-
-    @compute_order.register(orders=(CLOSE_SHORT_POSITION,))
-    def close_short_position(self, state, position, commission, lending_debt, profit,
-                             close):
-        is_order = True
-
-        lending_debt *= (1 + self.lending_rate) ** self.time  # unit = other
-        final_debt = lending_debt * close  # unit = mine
-
-        commission += final_debt * self.buy_rate  # unit = mine
-        _position = position - commission - final_debt  # unit = other
-
-        profit *= (_position - lending_debt * close) / position
-
-        return _position, commission, lending_debt, profit, close, is_order
-
-    @compute_order.register(orders=(CLOSE_LONG_POSITION, OPEN_LONG_POSITION))
-    def close_long_and_open_short_position(self, state, position, commission, lending_debt,
-                                           profit, close):
-        position, commission, lending_debt, profit, *_ = self.close_long_position(
-            (CLOSE_LONG_POSITION,), position, commission, lending_debt, profit, close)
-        position, commission, lending_debt, profit, close, is_order = self.open_short_position(
-            (OPEN_SHORT_POSITION,), position, commission, lending_debt, profit, close)
-
-        return position, commission, lending_debt, profit, close, is_order
-
-    @compute_order.register(orders=(CLOSE_SHORT_POSITION, OPEN_LONG_POSITION))
-    def close_short_and_open_long_position(self, state, position, commission, lending_debt,
-                                           profit, close):
-        position, commission, lending_debt, profit, *_ = self.close_short_position(
-            (), position, commission, lending_debt, profit, close)
-        position, commission, lending_debt, profit, close, is_order = self.open_long_position(
-            (), position, commission, lending_debt, profit, close)
-
-        return position, commission, lending_debt, profit, close, is_order
+            return edict(
+                position=self.position, profit=profit,
+                acc_profit=self.position / self.initial_position
+            )
