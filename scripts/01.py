@@ -1,21 +1,30 @@
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-df = pd.read_csv("../data/btc_ltc.csv", sep=";", index_col=0, parse_dates=[1], infer_datetime_format=True)
-
+from modules.source import Asset
 from modules.strategy import AdaptivePQ
+from modules.strategy.analysis import Optimization
 
-strategy = AdaptivePQ(df)
+btc_ltc = Asset("BTC_LTC", candlestick_period="5 min", start='3 Months',
+                end='Now').date_as_datetime()
 
-profits = []
-for i in range(1, 5):
-    ema_profits = []
-    for j in range(1, 5):
-        _profit = strategy(rsi_n=i, ema_n=j, lower_limit=40, upper_limit=60).profit(stop_loss=0.85, leverage=1)
-        ema_profits.append(_profit)
+strategy = AdaptivePQ(btc_ltc.as_dataframe())
 
-    arr = np.array([p.total for p in ema_profits])
-    argmax = arr.argmax()  # = j
-    profits.append([argmax, ema_profits[argmax]])
+params = dict(rsi_n=2, ema_n=80, lower_limit=40, upper_limit=60, lending_rate=.02,
+              stop_loss=.85, acc_stop_loss=.7)
+ledger = strategy.describe(**params)
+ledger.plot(figsize=(20, 10),
+            cols=("profit", "acc_profit", "buy_and_hold", "sell_and_hold", "normalized_close"))
 
+ev = strategy.describe(**params)
+
+print(ledger.total_profit, ledger.buy_and_hold_profit, ledger.sell_and_hold_profit)
+print(ev.total_profit, ev.buy_and_hold_profit, ev.sell_and_hold_profit)
+
+analysis = Optimization(strategy, lower_limit=40, upper_limit=60, stop_loss=.85, leverage=1)
+opt_res = analysis.grid_search(
+    bounds=[
+        ("rsi_n", 2, 30),
+        ("ema_n", 75, 200),
+    ],
+    max_iter=500
+)
+
+print(opt_res)

@@ -3,3 +3,7 @@
 /.vscode/
 /.git/
 /.ipynb_checkpoints/
+
+*.sqlite3
+*.env
+*.log

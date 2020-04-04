@@ -6,12 +6,10 @@ from hyperopt import hp, tpe, fmin
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-from modules.Strategy import Strategy
-
 
 class Optimization:
 
-	def __init__(self, strategy: Strategy, *args, **kwargs):
+	def __init__(self, strategy, *args, **kwargs):
 		self.strategy = strategy
 
 		self.args = args
@@ -31,7 +29,7 @@ class Optimization:
 		return best
 
 	def grid_search(self, bounds, max_iter=100):
-		space = OrderedDict([(name, range(a, b + 1)) for name, a, b in bounds])
+		space = OrderedDict([(name, range(a, b + 1, c)) for name, a, b, c in bounds])
 		grid = list(product(*space.values()))
 
 		if max_iter:

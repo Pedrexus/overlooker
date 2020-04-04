@@ -2,7 +2,7 @@ import abc
 
 from pandas import DataFrame
 
-from modules.profit.measure import Accountant
+from modules.strategy.analysis import Optimization
 
 
 class Strategy(metaclass=abc.ABCMeta):
@@ -18,6 +18,9 @@ class Strategy(metaclass=abc.ABCMeta):
 
     def plot(self, figsize=(10, 10), *args, **kwargs):
         df = self.get_chart_with_indicators(*args, **kwargs)
+
+        if not df.change.any():
+            return df.set_index("date")['close'].plot(figsize=figsize)
 
         def colorize(row):
             if row.state_start < 0:
@@ -40,13 +43,8 @@ class Strategy(metaclass=abc.ABCMeta):
 
         return axes
 
-    @staticmethod
-    def get_profit(chart_with_trend: DataFrame, *args, **kwargs):
-        profit_data = chart_with_trend \
-            .join(chart_with_trend.shift(1), rsuffix="_previous") \
-            .apply(Accountant().describe_profit, axis=1, *args, **kwargs) \
-            .tolist()
-        return DataFrame(profit_data)
+    def optimize(self, *args, **kwargs) -> Optimization:
+        return Optimization(self, *args, **kwargs)
 
     @abc.abstractmethod
     def strategy(self, *args, **kwargs):

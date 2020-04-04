@@ -1,6 +1,6 @@
 from functools import total_ordering
 
-from modules.constants import Constant
+from apps.scholar import Constant
 
 
 @total_ordering

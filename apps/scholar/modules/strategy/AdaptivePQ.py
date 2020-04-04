@@ -1,14 +1,11 @@
 from functools import lru_cache
-from typing import Dict
 
 from pandas import DataFrame
 from ta.momentum import RSIIndicator
 from ta.trend import EMAIndicator
 
-from modules.Strategy.strategy import Strategy
-from modules.constants.orders import CLOSE_SHORT_POSITION, OPEN_LONG_POSITION, CLOSE_LONG_POSITION, \
-    OPEN_SHORT_POSITION, HOLD_POSITION
-from modules.constants.states import State, SHORT_POSITION, NO_POSITION, LONG_POSITION
+from modules.strategy.strategy import Strategy
+from apps.scholar import SHORT_POSITION, NO_POSITION, LONG_POSITION
 from modules.profit.ledger import DescriptionLedger, EvaluationLedger
 from modules.profit.measure import Accountant
 
