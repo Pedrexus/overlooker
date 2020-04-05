@@ -8,14 +8,29 @@ https://docs.djangoproject.com/en/3.0/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.0/ref/settings/
+
+For deployment, see
+https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 """
 
 import os
+import platform
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from decouple import config
+from pathlib import Path
 
-# region CELERY
+BASE_DIR = Path(__file__).parent.parent
+
+SECRET_KEY = config('SECRET_KEY')
+
+DEBUG = config('DEBUG', default=False, cast=bool)
+
+ALLOWED_HOSTS = []
+
+AUTH_USER_MODEL = 'registration.User'
+
+# region: CELERY
+
 CELERY_BROKER_URL = 'pyamqp://'
 CELERY_RESULT_BACKEND = 'rpc://'
 
@@ -23,25 +38,69 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 
-CELERY_TIMEZONE = 'America/Sao_Paulo'
+CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
+
 # endregion
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
+# region: rest framework
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '=aouyt3b*%&!o(e7c^o&q2m+u_9i76*khjni1zxo78xd*d%%b='
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_FILTER_BACKEND": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+    ],
+}
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# endregion
 
-ALLOWED_HOSTS = []
+# region: cors
 
+# frontend communication
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_WHITELIST = [
+    "http://localhost:8080",
+    "http://localhost:3000",
+    "http://127.0.0.1:9000",
+    "http://127.0.0.1:3000",
+]
 
-# Application definition
+# endregion
 
-INSTALLED_APPS = [
+# region: djoser
+
+DJOSER = dict(
+    # SOCIAL_AUTH_ALLOWED_REDIRECT_URIS=['recieve'],
+    # SEND_ACTIVATION_EMAIL=True,
+    # SEND_CONFIRMATION_EMAIL=True,
+    # PASSWORD_CHANGED_EMAIL_CONFIRMATION=True,
+    # USERNAME_CHANGED_EMAIL_CONFIRMATION=True,
+    SET_PASSWORD_RETYPE=True,
+    PASSWORD_RESET_CONFIRM_RETYPE=True,
+    PASSWORD_RESET_SHOW_EMAIL_NOT_FOUND=True,
+    ACTIVATION_URL='activate/{uid}/{token}',
+    PASSWORD_RESET_CONFIRM_URL='password/reset/{uid}/{token}',
+)
+
+# PROTOCOL = 'http://'
+DOMAIN = 'localhost:3000'
+
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('JWT',),
+}
+
+# endregion
+
+# region: Application definition
+
+DJANGO_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -49,6 +108,23 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
+
+THIRD_PARTY_APPS = [
+    'rest_framework',
+    'rest_framework.authtoken',
+    'rest_framework_simplejwt',
+    'djoser',
+    'drf_yasg',
+    # 'corsheaders',
+]
+
+PROJECT_APPS = [
+    'apps.registration.apps.RegistrationConfig',
+    'apps.scholar.apps.ScholarConfig',
+    'apps.agent.apps.AgentConfig',
+]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -80,19 +156,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'overlooker.wsgi.application'
 
+# endregion
 
-# Database
+# region: Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+if 'django' in platform.node():
+    DATABASES = {
+        'default': {
+            'ENGINE': '',
+            'NAME': '',
+            'HOST': '',
+            'PORT': '',
+            'USER': '',
+            'PASSWORD': ''
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        }
+    }
+# endregion
 
-
-# Password validation
+# region: Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -110,13 +199,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# endregion
 
-# Internationalization
+# region: Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'America/Sao_Paulo'
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
@@ -124,9 +214,21 @@ USE_L10N = True
 
 USE_TZ = True
 
+DATETIME_INPUT_FORMATS = [
+    '%d/%m/%Y %H:%M:%S',
+    '%d/%m/%Y %H:%M',
+]
 
-# Static files (CSS, JavaScript, Images)
+# endregion
+
+# region: Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
+STATICFILES_DIRS = [BASE_DIR.joinpath("static").as_posix()]
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR.joinpath('static-production').as_posix()
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR.joinpath('media')
+
+# endregion
