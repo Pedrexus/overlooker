@@ -29,14 +29,20 @@ ALLOWED_HOSTS = []
 
 AUTH_USER_MODEL = 'registration.User'
 
+# region: Redis
+
+REDIS_CONNECTION_POOL = dict(host='localhost', port=6379, db=0)
+
+# endregion
+
 # region: CELERY
 
 CELERY_BROKER_URL = 'pyamqp://'
 CELERY_RESULT_BACKEND = 'rpc://'
 
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'pickle'
+CELERY_ACCEPT_CONTENT = ['pickle', 'json']
+# CELERY_RESULT_SERIALIZER = ['pickle']
 
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
@@ -94,6 +100,72 @@ DOMAIN = 'localhost:3000'
 
 SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('JWT',),
+}
+
+# endregion
+
+# region: logging
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'file-formatter': {
+            '()': 'utils.logging.formatters.FileFormatter',
+            'format': '{levelname} {created} {client_ip} {is_routable} {endpoint} {method} {status_code} {request_size}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '({levelname}) {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'formatter': 'file-formatter',
+            'filename': '_logs/requests.log',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+        }
+    },
+    'loggers': {
+        'django.request': {  # logs only  400+
+            'handlers': ['file'],
+            'propagate': False,
+        },
+        'info-console': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'info-console-file': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        }
+    }
 }
 
 # endregion
@@ -208,11 +280,11 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-USE_I18N = True
+USE_I18N = False
 
-USE_L10N = True
+USE_L10N = False
 
-USE_TZ = True
+USE_TZ = False
 
 DATETIME_INPUT_FORMATS = [
     '%d/%m/%Y %H:%M:%S',

@@ -1,8 +1,12 @@
 /venv/
-/__*/
+/_*/
 /.vscode/
 /.git/
 /.ipynb_checkpoints/
+/.idea/
+/.benchmarks/
+/.pytest_cache/
+/.*/
 
 *.sqlite3
 *.env

@@ -2,10 +2,16 @@ import abc
 
 from pandas import DataFrame
 
-from modules.strategy.analysis import Optimization
+from ..strategy.analysis import Optimization
 
 
 class Strategy(metaclass=abc.ABCMeta):
+
+    registry = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        Strategy.registry[cls.__name__] = cls
 
     def __init__(self, chart: DataFrame):
         self.chart = chart

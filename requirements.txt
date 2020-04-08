@@ -22,6 +22,7 @@ pandas
 matplotlib
 
 celery
+redis
 
 poloniexapi
 easydict

@@ -4,10 +4,10 @@ from pandas import DataFrame
 from ta.momentum import RSIIndicator
 from ta.trend import EMAIndicator
 
-from modules.strategy.strategy import Strategy
-from apps.scholar import SHORT_POSITION, NO_POSITION, LONG_POSITION
-from modules.profit.ledger import DescriptionLedger, EvaluationLedger
-from modules.profit.measure import Accountant
+from .strategy import Strategy
+from ..constants.states import SHORT_POSITION, NO_POSITION, LONG_POSITION
+from ..profit.ledger import DescriptionLedger, EvaluationLedger
+from ..profit.measure import Accountant
 
 
 class AdaptivePQ(Strategy):
@@ -24,6 +24,7 @@ class AdaptivePQ(Strategy):
             return SHORT_POSITION
         return NO_POSITION
 
+    # TODO: turn into task
     def evaluate(self, rsi_n=14, ema_n=12, lower_limit=40, upper_limit=60, *args, **kwargs):
         df = self.get_chart_with_indicators(rsi_n, ema_n, lower_limit, upper_limit)
 

@@ -1,7 +1,7 @@
 from easydict import EasyDict as edict
 from copy import copy
 
-from apps.scholar import NO_POSITION, SHORT_POSITION, LONG_POSITION
+from ..constants.states import NO_POSITION, SHORT_POSITION, LONG_POSITION
 
 LENDING_PERIOD = 86400
 
