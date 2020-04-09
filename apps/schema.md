@@ -107,7 +107,7 @@ for further analysis.
     - strategies configurations (matrix)
 7. order (redis)
     - investment_id
-    - type
+    - order type
     - best_strategy
     - best_params
     

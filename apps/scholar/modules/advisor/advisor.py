@@ -1,4 +1,7 @@
 from functools import lru_cache
+from itertools import product
+
+from celery import group
 
 from apps.scholar.models import Investment
 from apps.scholar.modules.strategy import get_strategies_classes
@@ -26,6 +29,9 @@ class Advisor:
             f"strategies={[s.name for s in self.investment.strategies]})"
         )
 
+    def __hash__(self):
+        return hash(self.key(self.investment))
+
     @staticmethod
     def key(investment: Investment):
         return investment.user.pk, investment.exchange.pk, investment.market  # unique together
@@ -38,13 +44,13 @@ class Advisor:
     def update_and_retrieve(cls, investment):
         advisor = cls.get(investment)
 
-        advisor.investment = investment
-        advisor.api.cache_clear()
-        advisor.strategies.cache_clear()
+        # advisor.investment = investment
+        # advisor.api.cache_clear()
+        # advisor.strategies.cache_clear()
 
         # also possible, but probably more expensive:
-        # advisor = cls(investment)
-        # cls.registry[investment.pk] = advisor
+        advisor = cls(investment)
+        cls.registry[cls.key(investment)] = advisor
 
         return advisor
 
@@ -62,16 +68,28 @@ class Advisor:
         return get_strategies_classes(self.investment.strategies)
 
     def run(self):
+        from apps.scholar.tasks import evaluate_strategy_total_profit as evaluate
+        from apps.scholar.tasks import maximum, make_order, include_extra_info, save_on_redis
+
         chart = self.api()().date_as_datetime().as_dataframe()
 
-        best_strategy = []
-        for StrategyClass in self.strategies():
-            strategy = StrategyClass(chart)
-            # FIXME: make for generic strategy
-            analysis = strategy.optimize(lower_limit=40, upper_limit=60).grid_search(
-                bounds=[("rsi_n", 1, 5, 2), ("ema_n", 1, 20, 5)],
-                max_iter=None,
-            )
-            best_strategy.append(analysis)
+        strategies = [StrategyClass(chart) for StrategyClass in self.strategies()]
+        params = [dict(
+            lower_limit=[40], upper_limit=[60],
+            rsi_n=list(range(10, 15, 2)), ema_n=list(range(100, 200, 40))
+        )]
 
-        return max(best_strategy, key=lambda s: s["__profit"])
+        def gen(strategies_list: list, params_list: list):
+            for st, args in zip(strategies_list, params_list):
+                for point in product(*args.values()):
+                    yield {"strategy": st, **dict(zip(args.keys(), point))}
+
+        evaluation = (
+                group(evaluate.s(**kwargs) for kwargs in gen(strategies, params))
+                | maximum.s()
+                | make_order.s(strategies)
+                | include_extra_info.s(self.investment)
+                | save_on_redis.s(hash(self))
+        ).apply_async()
+
+        return evaluation

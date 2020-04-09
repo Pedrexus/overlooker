@@ -132,6 +132,9 @@ class Investment(models.Model):
     def __str__(self):
         return f"{self.market}({self.exchange}, amount={self.amount})"
 
+    def __hash__(self):
+        return hash((self.user.pk, self.exchange.pk, self.market))  # unique together
+
     @property
     def credentials(self):
         return ExchangeConnection.objects.get(

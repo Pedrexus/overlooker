@@ -3,7 +3,6 @@ import logging
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from apps.scholar.models import Investment
-from apps.scholar.modules.advisor.advisor import Advisor
 from .signals import serializer_created
 from ..serializers import InvestmentSerializer as InvSerial
 from ..tasks import get_best_strategy
@@ -20,7 +19,7 @@ def start_analysis(sender: InvSerial, instance: Investment, **kwargs):
 @receiver(post_delete, sender=Investment, weak=False, dispatch_uid="stop_analysis")
 def stop_analysis(sender: Investment, instance: Investment, **kwargs):
     try:
-        advisor = Advisor.get(instance)
+        # advisor = Advisor.get(instance)
 
         logger.info("advisor is going to stop")
         # advisor.stop()

@@ -5,6 +5,7 @@ from ta.momentum import RSIIndicator
 from ta.trend import EMAIndicator
 
 from .strategy import Strategy
+from ..constants.orders import HOLD_POSITION
 from ..constants.states import SHORT_POSITION, NO_POSITION, LONG_POSITION
 from ..profit.ledger import DescriptionLedger, EvaluationLedger
 from ..profit.measure import Accountant
@@ -24,7 +25,6 @@ class AdaptivePQ(Strategy):
             return SHORT_POSITION
         return NO_POSITION
 
-    # TODO: turn into task
     def evaluate(self, rsi_n=14, ema_n=12, lower_limit=40, upper_limit=60, *args, **kwargs):
         df = self.get_chart_with_indicators(rsi_n, ema_n, lower_limit, upper_limit)
 
@@ -58,10 +58,18 @@ class AdaptivePQ(Strategy):
 
         return DescriptionLedger(result, *args, **kwargs)
 
-    def execute(self, *args, **kwargs):
-        pass
+    def execute(self, last_state, rsi_n=14, ema_n=12, lower_limit=40, upper_limit=60):
+        df = self.get_chart_with_indicators(rsi_n, ema_n, lower_limit, upper_limit)
+        last_row = df.iloc[-1]
 
-    @lru_cache(maxsize=512)
+        state = self.strategy(last_row, lower_limit, upper_limit)
+
+        if state == last_state:
+            return HOLD_POSITION
+        else:
+            return self.execution_relation[state]
+
+    @lru_cache(maxsize=1024)
     def get_indicators(self, rsi_n=14, ema_n=12):
         indicator_rsi = RSIIndicator(close=self.chart.close, n=int(rsi_n), fillna=False).rsi()
         indicator_rsi_ema = EMAIndicator(close=indicator_rsi, n=int(ema_n)).ema_indicator()
@@ -70,6 +78,7 @@ class AdaptivePQ(Strategy):
 
         return indicator_rsi, indicator_rsi_ema.fillna(0)
 
+    @lru_cache(maxsize=1024)
     def get_chart_with_indicators(self, rsi_n=14, ema_n=12, lower_limit=40, upper_limit=60):
         df = self.chart.copy()
         df["rsi"], df["rsi_ema"] = self.get_indicators(rsi_n, ema_n)

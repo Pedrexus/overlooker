@@ -31,14 +31,14 @@ AUTH_USER_MODEL = 'registration.User'
 
 # region: Redis
 
-REDIS_CONNECTION_POOL = dict(host='localhost', port=6379, db=0)
+REDIS_CONNECTION_POOL = dict(host='localhost', port=6379, db=10)
 
 # endregion
 
 # region: CELERY
 
 CELERY_BROKER_URL = 'pyamqp://'
-CELERY_RESULT_BACKEND = 'rpc://'
+CELERY_RESULT_BACKEND = 'redis://'  # db = 0
 
 CELERY_TASK_SERIALIZER = 'pickle'
 CELERY_ACCEPT_CONTENT = ['pickle', 'json']

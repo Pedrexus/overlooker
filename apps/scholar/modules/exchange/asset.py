@@ -44,12 +44,10 @@ class Asset(metaclass=abc.ABCMeta):
     def call(self, *args, **kwargs):
         return pd.Series(self.return_ticker(), name=self.currency_pair)
 
-    @shared_task
     @abc.abstractmethod
     def return_chart_data(self):
         raise NotImplementedError
 
-    @shared_task
     @abc.abstractmethod
     def return_ticker(self):
         raise NotImplementedError

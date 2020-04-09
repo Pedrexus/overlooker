@@ -10,6 +10,9 @@ class State(Constant):
         super(State, self).__init__(*args, **kwargs)
         self.value = value
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __eq__(self, other):
         return self.value == other
 

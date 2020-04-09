@@ -3,9 +3,17 @@ import abc
 from pandas import DataFrame
 
 from ..strategy.analysis import Optimization
+from ..constants.orders import END_POSITION, OPEN_SHORT_POSITION, OPEN_LONG_POSITION
+from ..constants.states import SHORT_POSITION, NO_POSITION, LONG_POSITION
 
 
 class Strategy(metaclass=abc.ABCMeta):
+
+    execution_relation = {
+            NO_POSITION: END_POSITION,
+            SHORT_POSITION: OPEN_SHORT_POSITION,
+            LONG_POSITION: OPEN_LONG_POSITION
+        }
 
     registry = {}
 
