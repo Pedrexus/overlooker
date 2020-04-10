@@ -11,10 +11,10 @@ The callback process is:
         1. check all stop-limit orders
             1.1. remove the expired ones, if any
             1.2. execute the valid one, if any
-            * not allowed to have over three orders: 1 sell, 1 buy and 1 end (for each market)
+            * not allowed to have over three orders: 1 sell, 1 buy and 1 end (for each market, user, exchange)
                 1.2.1. log the order
                 1.2.2. signal db the state has changed and sets order to hold
-                1.2.3. remove all stop-limit orders
+                1.2.3. remove all stop-limit orders (for each market, user, exchange)
                 1.2.4. leave callback
         2. if none executed
             1. request data from database. If unchanged, database signals it.

@@ -2,7 +2,7 @@ import logging
 
 from celery import shared_task
 
-from apps.scholar.models import Investment
+from apps.scholar.models import Investment, ExchangeConnection
 from apps.scholar.modules.advisor import Advisor
 
 import numpy as np
@@ -62,14 +62,20 @@ def make_order(data: dict, strategies: list):
 
 @shared_task
 def include_extra_info(data: dict, investment: Investment):
+    conn = ExchangeConnection.objects.get(
+        user=investment.user,
+        exchange=investment.exchange
+    )
+
     return {
         **data,
-        "amount": float(investment.amount),
+        "public key": conn.public_key,
+        "secret key": conn.secret_key,
+        "exchange": str(investment.exchange),
         "market": str(investment.market),
+        "amount": float(investment.amount),
         "stop loss": float(investment.stop_loss),
         "acc stop loss": float(investment.accumulated_stop_loss),
-        "user": int(investment.user),
-        "exchange": int(investment.exchange)
     }
 
 
