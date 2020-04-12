@@ -21,11 +21,18 @@ class Processing:
 
     def get_order_table(self) -> pd.DataFrame:
         data = self.redis.get_all_hash_dicts(decode=True)
-        table = pd.DataFrame(data).set_index("hash")
+        table = pd.DataFrame(data)  # .set_index("hash")
 
         table = self.validate(table, self.required_fields)
 
         return table
+
+    def set_visualized(self, hash):
+        self.redis.hset(hash, 'visualized', True)
+
+    def update_state_order(self, hash, state, order):
+        self.redis.hset(hash, 'state', state)
+        self.redis.hset(hash, 'order', order)
 
 
 if __name__ == '__main__':

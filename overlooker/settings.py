@@ -31,6 +31,7 @@ AUTH_USER_MODEL = 'registration.User'
 
 # region: Redis
 
+# redis_url = 'redis://overlooker.0gi3rg.ng.0001.use2.cache.amazonaws.com:6379'
 REDIS_CONNECTION_POOL = dict(host='localhost', port=6379, db=10)
 
 # endregion

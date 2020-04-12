@@ -1,4 +1,4 @@
-from . import Constant
+from .constant import Constant
 
 
 # @total_ordering
